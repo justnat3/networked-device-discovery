@@ -3,9 +3,8 @@ from ipaddress import IPv4Network, AddressValueError
 import logging
 import sys
 
-root_logging = logging.getLogger(__file__)
+root_logging = logging.getLogger(__name__)
 root_logging.setLevel(logging.DEBUG)
-
 handler = logging.StreamHandler(sys.stdout)
 handler.setLevel(logging.ERROR)
 formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -33,12 +32,13 @@ def discovery_by_cidr_via_ssh():
         sys.exit(1)
 
     for address in addresses_:
-
+        online = False
         # Create a UDP, INET socket with a Non_Zero timeout
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.settimeout(0.01)
         try:
             s.connect((address, 22))
+            online = True
         except socket.timeout:
             # this is hit on a timeout
             root_logging.debug("{:<5}::TIMEOUT".format(address))
@@ -65,7 +65,6 @@ def discovery_by_cidr_via_ssh():
             "and is thus terminated by a CR and LF immediately after the 'softwareversion' string."
             """
             proto_length = str(data).index(r"\r\n")
-
             results.append(
                 {
                     "address": address,
@@ -76,10 +75,14 @@ def discovery_by_cidr_via_ssh():
 
             data = None
         else:
+            if online:
+                results.append({"address": address, "non_ssh_responsive": online})
             root_logging.debug("no data found for {:<5}".format(address))
         s.close()
     return results
 
 
 if __name__ == "__main__":
-    discovery_by_cidr_via_ssh()
+    res = discovery_by_cidr_via_ssh()
+    for i in res:
+        print(i)
